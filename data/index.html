@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>ESP32 Web Server</title>
+  </head>
+  <body>
+    <h1>Contador: <span id="counter">0</span></h1>
+    <button id="button">Incrementar contador</button>
+    <script>
+      var button = document.getElementById("button");
+      var counter = document.getElementById("counter");
+
+      button.addEventListener("click", function() {
+        fetch("/button", { method: "POST" })
+          .then(response => response.text())
+          .then(data => counter.innerText = data);
+      });
+
+      setInterval(function() {
+        fetch("/counter")
+          .then(response => response.text())
+          .then(data => counter.innerText = data);
+      }, 1000);
+    </script>
+  </body>
+</html>
