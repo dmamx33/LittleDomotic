@@ -1,155 +1,187 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <SPIFFS.h>
 
-// Replace with your network credentials
-const char* ssid = "your_SSID";
-const char* password = "your_PASSWORD";
+const char* ssid = "FRITZ!Box 6591 Cable SW";
+const char* password = "62407078731195560963";
 
-// Create an instance of the web server
 WebServer server(80);
 
-// Set initial count and LED state
-int count = 0;
-bool redLedState = false;
-bool greenLedState = false;
+int contador = 0;
+int tiempo=0;
+const int LED1 = 25;
+const int LED2 = 26;
+const int LED3 = 27;
+const int BUTTON = 33;
+
+
+boolean BLOCK=false;
+boolean COOLING = true;
+int ciclo_espera=1;
+boolean ledAzulstate = false;
 
 void handleRoot() {
-  // Load the index.html file
-  File file = SPIFFS.open("/index.html", "r");
-  
-  // Send the file content to the client
-  server.streamFile(file, "text/html");
-  file.close();
+  String html = "<html><head><title>ESP32 Web Server</title></head><body>";
+  html += "<h1>Steurung Kuehlung Papiervernichter</h1>";
+  html += "<h1 id=\"contador\">Bedienungzeit: " + String(contador) + "</h1>";
+  html += "<p><a href=\"/led1on\"><button>Encender LED 1</button></a></p>";
+  html += "<p><a href=\"/led1off\"><button>Apagar LED 1</button></a></p>";
+  html += "<p><a href=\"/led2on\"><button>Encender LED 2</button></a></p>";
+  html += "<p><a href=\"/led2off\"><button>Apagar LED 2</button></a></p>";
+  html += "<p><a href=\"/led3on\"><button>Encender LED 3</button></a></p>";
+  html += "<p><a href=\"/led3off\"><button>Apagar LED 3</button></a></p>";
+  html += "<script>setInterval(function() {"
+          "var xhttp = new XMLHttpRequest();"
+          "xhttp.onreadystatechange = function() {"
+          "if (this.readyState == 4 && this.status == 200) {"
+          "document.getElementById(\"contador\").innerHTML = \"Contador: \" + this.responseText;"
+          "}"
+          "};"
+          "xhttp.open(\"GET\", \"/getcontador\", true);"
+          "xhttp.send();"
+          "}, 1000);</script>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
 }
 
-void handleButtonPress() {
-  // Increment the count
-  count++;
-  
-  // Update the LED states
-  redLedState = (count == 0);
-  greenLedState = (count > 0);
-  
-  // Send the new count value and LED states to the client
-  server.send(200, "text/plain", String(count));
+void handleLED1On() {
+  digitalWrite(LED1, HIGH);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
 }
 
-void handleButtonHold() {
-  // Decrement the count
-  count--;
-  
-  // Update the LED states
-  redLedState = (count == 0);
-  greenLedState = (count > 0);
-  
-  // Send the new count value and LED states to the client
-  server.send(200, "text/plain", String(count));
+void handleLED1Off() {
+  digitalWrite(LED1, LOW);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
+}
+
+void handleLED2On() {
+  digitalWrite(LED2, HIGH);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
+
+}
+
+void handleLED2Off() {
+  digitalWrite(LED2, LOW);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
+}
+
+void handleLED3On() {
+  digitalWrite(LED3, HIGH);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
+}
+
+void handleLED3Off() {
+  digitalWrite(LED3, LOW);
+  server.sendHeader("Location", "/");
+  server.send(302, "text/plain", "");
 }
 
 void setup() {
-  // Start serial communication
   Serial.begin(115200);
-  
-  // Connect to Wi-Fi network
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
+
   WiFi.begin(ssid, password);
-  Serial.println("Connecting to WiFi...");
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    Serial.println("Connecting to WiFi...");
+    Serial.println("Conectando a WiFi...");
   }
-  Serial.println("Connected to WiFi");
-  
-  // Mount the SPIFFS file system
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An error has occurred while mounting SPIFFS");
-    return;
-  }
-  Serial.println("SPIFFS mounted successfully");
-  
-  // Configure the LED pins as outputs
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(25, OUTPUT);
-  
-  // Set the initial LED states
-  digitalWrite(LED_BUILTIN, redLedState ? HIGH : LOW);
-  digitalWrite(25, greenLedState ? HIGH : LOW);
-  
-  // Handle requests to the root URL
-  server.on("/", HTTP_GET, handleRoot);
-  
-  // Handle button press and hold events
-  server.on("/increment", HTTP_GET, handleButtonPress);
-  server.on("/decrement", HTTP_GET, handleButtonHold);
-  
-  // Start the server
+
+  Serial.println("WiFi conectado");
+  Serial.println("Dirección IP: " + WiFi.localIP().toString());
+
+  server.on("/", handleRoot);
+  server.on("/led1on", handleLED1On);
+  server.on("/led1off", handleLED1Off);
+  server.on("/led2on", handleLED2On);
+  server.on("/led2off", handleLED2Off);
+  server.on("/led3on", handleLED3On);
+  server.on("/led3off", handleLED3Off);
+  server.on("/getcontador", HTTP_GET, []() {
+  server.send(200, "text/plain", String(contador));
+});
+
   server.begin();
-  Serial.println("Server started");
 }
 
 void loop() {
-  // Handle incoming client requests
   server.handleClient();
-  
-  // Toggle the green LED state every 500 milliseconds
-  static unsigned long lastMillis = 0;
-  if (millis() - lastMillis >= 500) {
-    greenLedState = !greenLedState;
-    digitalWrite(25, greenLedState ? HIGH : LOW);
-    lastMillis = millis();
+
+  if(!BLOCK)/// EL motor no está bloqueado
+  {
+
+    digitalWrite(LED3,!digitalRead(BUTTON));
+    if(!digitalRead(BUTTON))/////Boton apretado
+    {
+      tiempo++;
+    }
+    else
+    {
+        if (tiempo>0)
+        {
+              if(ciclo_espera >= 150)///Si se cumplen los 15 segundos decrementa el tiempo AN
+                {
+                tiempo=tiempo-10;
+                ciclo_espera = 1;
+                }
+                else 
+                ciclo_espera++; // Decrementa el ciclo una decima de segundo
+        }
+    }
+    
+    if(tiempo>=1200)///Se llego a tiempo limite, bloquea motor
+      {
+        BLOCK=true;
+        digitalWrite(LED2,true);
+      }
   }
-  
-  // Update the red LED state if necessary
-  digitalWrite(LED_BUILTIN, redLedState ? HIGH : LOW);
+  else /// EL motor está bloqueado
+  {
+    if(ciclo_espera >= 150)///Si se cumplen los 15 segundos decrementa el tiempo AN
+    {
+      tiempo=tiempo-10;
+      ciclo_espera = 1;
+    }
+    else 
+      ciclo_espera++; // Decrementa el ciclo una decima de segundo
+      //Serial.println(ciclo_espera);
+      //Serial.println(tiempo);
+      //////////////////////////////////////////////////
+
+    if(tiempo<=0)//Tiempo de espera de 30 minutos total tras 2 minutos de operacion
+    {
+      ciclo_espera=1;
+      digitalWrite(LED2,false);
+      BLOCK = false;
+      Serial.println("Desbloqueo");
+    }//////////////////////////////////////////////////
+
+  }
+
+  if(tiempo>10)/////Cooling activo parpadea led azul
+  {
+    ledAzulstate = !ledAzulstate;
+    digitalWrite(LED1,ledAzulstate);
+  }
+  else
+  digitalWrite(LED1,false);
+//////////////////////////////////////////////////
+  contador = int(tiempo/10);////escribe en el webserver
+  delay(100);
 }
 
-// #include <Arduino.h>
-// #include <WiFi.h>
-// #include <SPIFFS.h>
 
-// #include <ESPAsyncWebServer.h>
 
-// const char* ssid = "FRITZ!Box 6591 Cable SW";
-// const char* password = "62407078731195560963";
-
-// AsyncWebServer server(80);
-
-// int counter = 0;
-
-// void setup() {
-//   Serial.begin(115200);
-// SPIFFS.begin(true);
-
-//   // Conectar a la red Wi-Fi
-//   WiFi.begin(ssid, password);
-//   while (WiFi.status() != WL_CONNECTED) {
-//     delay(1000);
-//     Serial.println("Conectando a WiFi...");
-//   }
-//   Serial.println("Conexión WiFi establecida");
-
-//   // Ruta para manejar la petición del botón
-//   server.on("/button", HTTP_POST, [](AsyncWebServerRequest *request){
-//     counter++;
-//     request->send(200, "text/plain", String(counter));
-//   });
-
-//   // Ruta para obtener el contador actual
-//   server.on("/counter", HTTP_GET, [](AsyncWebServerRequest *request){
-//     request->send(200, "text/plain", String(counter));
-//   });
-
-//   // Servir el archivo HTML
-//   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-//     request->send(SPIFFS, "/index.html");
-//   });
-
-//   // Iniciar el servidor
-//   server.begin();
-// }
-
-// void loop() {
-
-//   Serial.println("Estoy vivo");
-//   delay(1000);  
-// }
+  /* if (digitalRead(BUTTON) == LOW) {
+    contador++;
+    digitalWrite(LED3, HIGH);
+  }
+  else
+    digitalWrite(LED3, LOW);
+  delay(1000); */
